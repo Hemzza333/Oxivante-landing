@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useProduct, WHATSAPP_NUMBER } from "@/lib/product-context";
-import { XIcon, CheckCircle, WhatsAppIcon } from "@/components/Icons";
+import { XIcon, CheckCircle } from "@/components/Icons";
 
 interface OrderModalProps {
   open: boolean;
@@ -33,6 +33,83 @@ async function submitToSheet(payload: any) {
   }
 
   return json;
+}
+
+/* ───────── Input ───────── */
+function InputField({
+  label,
+  value,
+  onChange,
+  required = true,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+}) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-sm text-gray-600">{label}</span>
+      <input
+        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-purple-200"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+      />
+    </label>
+  );
+}
+
+/* ───────── Success ───────── */
+function SuccessView({
+  orderId,
+  name,
+  t,
+  onClose,
+}: {
+  orderId: string;
+  name: string;
+  t: (key: string) => string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center text-center py-6">
+      <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+        <CheckCircle size={32} className="text-green-600" />
+      </div>
+
+      <h3 className="text-xl font-bold mb-1">{t("modal.success.title")}</h3>
+
+      <p className="text-sm text-gray-500 mb-5">{t("modal.success.text")}</p>
+
+      <div className="w-full bg-gray-50 rounded-2xl p-4 mb-5 text-sm">
+        <div className="flex justify-between">
+          <span>{t("modal.success.order")}</span>
+          <span className="font-mono font-bold">{orderId}</span>
+        </div>
+        <div className="flex justify-between mt-2">
+          <span>{t("modal.name")}</span>
+          <span>{name}</span>
+        </div>
+      </div>
+
+      <a
+        href={`https://wa.me/${WHATSAPP_NUMBER}`}
+        target="_blank"
+        rel="noreferrer"
+        className="w-full py-3.5 rounded-[20px] bg-green-500 text-white font-bold mb-3 text-center"
+      >
+        {t("modal.whatsapp")}
+      </a>
+
+      <button
+        onClick={onClose}
+        className="w-full py-3.5 rounded-[20px] bg-gray-200 font-medium"
+      >
+        {t("modal.back")}
+      </button>
+    </div>
+  );
 }
 
 /* ───────── Component ───────── */
@@ -90,9 +167,7 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
 
     if (!name.trim()) return setError(t("validation.name"));
     if (!phone.trim()) return setError(t("validation.phone"));
-if (!/^0[67]\d{8}$/.test(phone)) {
-  return setError("Numéro marocain invalide");
-}
+    if (!/^0[67]\d{8}$/.test(phone)) return setError("Numéro marocain invalide");
     if (!city.trim()) return setError(t("validation.city"));
 
     setSubmitting(true);
@@ -114,28 +189,27 @@ if (!/^0[67]\d{8}$/.test(phone)) {
         notes: "",
       };
 
-    const json = await submitToSheet(payload);
+      const json = await submitToSheet(payload);
 
-    setOrderId(json.orderId || generatedId);
+      setOrderId(json?.orderId || generatedId);
 
-    // 🔥 Facebook Lead Event
-    if (typeof window !== "undefined") {
-      const w = window as any;
-      if (w.fbq) {
-        w.fbq("track", "Lead", {
-          value: 349,
-          currency: "MAD",
-        });
+      // 🔥 Facebook Lead Event
+      if (typeof window !== "undefined") {
+        const w = window as any;
+        if (typeof w.fbq === "function") {
+          w.fbq("track", "Lead", { value: 349, currency: "MAD" });
+        }
       }
-    }
 
-    setSuccess(true);
-  } catch (err) {
-    setError(err instanceof Error ? err.message : "An error occurred");
-  } finally {
-    setSubmitting(false);
-  }
-};
+      setSuccess(true);
+    } catch (err: any) {
+      setError(err?.message || t("modal.error"));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" dir={dir}>
@@ -147,7 +221,6 @@ if (!/^0[67]\d{8}$/.test(phone)) {
 
       {/* Sheet */}
       <div className="relative w-full max-w-md bg-white rounded-t-[32px] shadow-2xl max-h-[90vh] flex flex-col">
-
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-[4px] rounded-full bg-gray-300" />
@@ -157,34 +230,35 @@ if (!/^0[67]\d{8}$/.test(phone)) {
         <button
           onClick={handleClose}
           className="absolute top-3 end-4 w-9 h-9 rounded-full bg-white/80 backdrop-blur flex items-center justify-center text-black shadow-sm border border-black/5"
+          aria-label="Close"
         >
           <XIcon size={16} />
         </button>
 
         <div className="flex-1 overflow-y-auto px-5 pb-8 pt-2">
-
           {!success ? (
             <>
-              <h3 className="text-lg font-bold mt-2 mb-5">
-                {t("modal.title")}
-              </h3>
+              <h3 className="text-lg font-bold mt-2 mb-5">{t("modal.title")}</h3>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
-
                 <InputField label={t("modal.name")} value={name} onChange={setName} />
+
                 <InputField
-  label={t("modal.phone")}
-  value={phone}
-  onChange={(val) =>
-    setPhone(
-      val
-        .replace(/[^\d]/g, "")  // يمنع أي حرف
-        .slice(0, 10)          // أقصى 10 أرقام
-    )
-  }
-/>
+                  label={t("modal.phone")}
+                  value={phone}
+                  onChange={(val) =>
+                    setPhone(val.replace(/[^\d]/g, "").slice(0, 10))
+                  }
+                />
+
                 <InputField label={t("modal.city")} value={city} onChange={setCity} />
-                <InputField label={t("modal.address")} value={address} onChange={setAddress} required={false} />
+
+                <InputField
+                  label={t("modal.address")}
+                  value={address}
+                  onChange={setAddress}
+                  required={false}
+                />
 
                 {error && (
                   <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl">
@@ -202,96 +276,10 @@ if (!/^0[67]\d{8}$/.test(phone)) {
               </form>
             </>
           ) : (
-            <SuccessView
-              orderId={orderId}
-              name={name}
-              t={t}
-              onClose={handleClose}
-            />
+            <SuccessView orderId={orderId} name={name} t={t} onClose={handleClose} />
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-/* ───────── Input ───────── */
-function InputField({
-  label,
-  value,
-  onChange,
-  required = true,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  required?: boolean;
-}) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-sm text-gray-600">{label}</span>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required={required}
-        className="w-full px-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
-      />
-    </label>
-  );
-}
-
-/* ───────── Success ───────── */
-function SuccessView({
-  orderId,
-  name,
-  t,
-  onClose,
-}: {
-  orderId: string;
-  name: string;
-  t: (key: string) => string;
-  onClose: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center text-center py-6">
-
-      <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
-        <CheckCircle size={32} className="text-green-600" />
-      </div>
-
-      <h3 className="text-xl font-bold mb-1">
-        {t("modal.success.title")}
-      </h3>
-
-      <p className="text-sm text-gray-500 mb-5">
-        {t("modal.success.text")}
-      </p>
-
-      <div className="w-full bg-gray-50 rounded-2xl p-4 mb-5 text-sm">
-        <div className="flex justify-between">
-          <span>{t("modal.success.order")}</span>
-          <span className="font-mono font-bold">{orderId}</span>
-        </div>
-        <div className="flex justify-between mt-2">
-          <span>{t("modal.name")}</span>
-          <span>{name}</span>
-        </div>
-      </div>
-
-      <a
-        href={`https://wa.me/${WHATSAPP_NUMBER}`}
-        target="_blank"
-        className="w-full py-3.5 rounded-[20px] bg-green-500 text-white font-bold mb-3 text-center"
-      >
-        {t("modal.whatsapp")}
-      </a>
-
-      <button
-        onClick={onClose}
-        className="w-full py-3.5 rounded-[20px] bg-gray-200 font-medium"
-      >
-        {t("modal.back")}
-      </button>
     </div>
   );
 }
