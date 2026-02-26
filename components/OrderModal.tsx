@@ -116,14 +116,14 @@ if (!/^0[67]\d{8}$/.test(phone)) {
 
       const json = await submitToSheet(payload);
 
-      setOrderId(json.orderId || generatedId);
-      setSuccess(true);
-    } catch (err: any) {
-      setError(err?.message || t("modal.error"));
-    } finally {
-      setSubmitting(false);
-    }
-  };
+setOrderId(json.orderId || generatedId);
+
+// 🔥 Facebook Lead Event
+if (typeof window !== "undefined" && (window as any).fbq) {
+  (window as any).fbq("track", "Lead", { value: 349, currency: "MAD" });
+}
+
+setSuccess(true);
 
   if (!open) return null;
 
