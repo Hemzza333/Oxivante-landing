@@ -114,24 +114,28 @@ if (!/^0[67]\d{8}$/.test(phone)) {
         notes: "",
       };
 
-      const json = await submitToSheet(payload);
+    const json = await submitToSheet(payload);
 
-setOrderId(json.orderId || generatedId);
+    setOrderId(json.orderId || generatedId);
 
-// 🔥 Facebook Lead Event
-if (typeof window !== "undefined") {
-  const w = window as any;
-  if (w.fbq) {
-    w.fbq("track", "Lead", {
-      value: 349,
-      currency: "MAD",
-    });
+    // 🔥 Facebook Lead Event
+    if (typeof window !== "undefined") {
+      const w = window as any;
+      if (w.fbq) {
+        w.fbq("track", "Lead", {
+          value: 349,
+          currency: "MAD",
+        });
+      }
+    }
+
+    setSuccess(true);
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "An error occurred");
+  } finally {
+    setSubmitting(false);
   }
-}
-
-setSuccess(true);
-
-  if (!open) return null;
+};
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" dir={dir}>
