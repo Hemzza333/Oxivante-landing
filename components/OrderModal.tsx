@@ -119,8 +119,14 @@ if (!/^0[67]\d{8}$/.test(phone)) {
 setOrderId(json.orderId || generatedId);
 
 // 🔥 Facebook Lead Event
-if (typeof window !== "undefined" && (window as any).fbq) {
-  (window as any).fbq("track", "Lead", { value: 349, currency: "MAD" });
+if (typeof window !== "undefined") {
+  const w = window as any;
+  if (w.fbq) {
+    w.fbq("track", "Lead", {
+      value: 349,
+      currency: "MAD",
+    });
+  }
 }
 
 setSuccess(true);
