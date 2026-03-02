@@ -9,6 +9,34 @@ interface OrderModalProps {
   onClose: () => void;
 }
 
+const PRICE = 349;
+const CURRENCY = "MAD";
+
+/* ───────── Tracking Helpers ───────── */
+function trackFacebookLead(params: { value: number; currency: string; orderId?: string }) {
+  if (typeof window === "undefined") return;
+  const w = window as any;
+  if (typeof w.fbq === "function") {
+    w.fbq("track", "Lead", {
+      value: params.value,
+      currency: params.currency,
+      order_id: params.orderId,
+    });
+  }
+}
+
+function trackGA4Lead(params: { value: number; currency: string; orderId?: string }) {
+  if (typeof window === "undefined") return;
+  const w = window as any;
+  if (typeof w.gtag === "function") {
+    w.gtag("event", "generate_lead", {
+      value: params.value,
+      currency: params.currency,
+      order_id: params.orderId,
+    });
+  }
+}
+
 /* ───────── Submit to Google Sheet ───────── */
 async function submitToSheet(payload: any) {
   const url = process.env.NEXT_PUBLIC_SHEET_WEBAPP_URL;
@@ -128,6 +156,9 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
 
   const scrollYRef = useRef(0);
 
+  // مهم: باش Lead مايتعاودش
+  const leadFiredRef = useRef(false);
+
   /* ───────── Scroll Lock ───────── */
   useEffect(() => {
     if (open) {
@@ -153,12 +184,29 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
     setError("");
     setSuccess(false);
     setOrderId("");
+    setSubmitting(false);
+
+    // رجّعها false باش إلا تسدّ/تحلّ المودال فمرة أخرى يتسجل lead جديد
+    leadFiredRef.current = false;
   }, []);
 
   const handleClose = useCallback(() => {
     resetForm();
     onClose();
   }, [onClose, resetForm]);
+
+  /* ───────── Fire Lead when SUCCESS shows ───────── */
+  useEffect(() => {
+    if (success && !leadFiredRef.current) {
+      leadFiredRef.current = true;
+
+      // Meta Lead
+      trackFacebookLead({ value: PRICE, currency: CURRENCY, orderId });
+
+      // GA4 Lead
+      trackGA4Lead({ value: PRICE, currency: CURRENCY, orderId });
+    }
+  }, [success, orderId]);
 
   /* ───────── Submit Handler ───────── */
   const handleSubmit = async (e: React.FormEvent) => {
@@ -179,7 +227,7 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
         orderId: generatedId,
         lang,
         product: t("hero.title"),
-        price: "349",
+        price: String(PRICE),
         fullName: name.trim(),
         phone: phone.trim(),
         city: city.trim(),
@@ -190,17 +238,9 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
       };
 
       const json = await submitToSheet(payload);
+      const finalOrderId = json?.orderId || generatedId;
 
-      setOrderId(json?.orderId || generatedId);
-
-      // 🔥 Facebook Lead Event
-      if (typeof window !== "undefined") {
-        const w = window as any;
-        if (typeof w.fbq === "function") {
-          w.fbq("track", "Lead", { value: 349, currency: "MAD" });
-        }
-      }
-
+      setOrderId(finalOrderId);
       setSuccess(true);
     } catch (err: any) {
       setError(err?.message || t("modal.error"));
@@ -214,10 +254,7 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" dir={dir}>
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/20 backdrop-blur-md"
-        onClick={handleClose}
-      />
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-md" onClick={handleClose} />
 
       {/* Sheet */}
       <div className="relative w-full max-w-md bg-white rounded-t-[32px] shadow-2xl max-h-[90vh] flex flex-col">
@@ -246,9 +283,7 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
                 <InputField
                   label={t("modal.phone")}
                   value={phone}
-                  onChange={(val) =>
-                    setPhone(val.replace(/[^\d]/g, "").slice(0, 10))
-                  }
+                  onChange={(val) => setPhone(val.replace(/[^\d]/g, "").slice(0, 10))}
                 />
 
                 <InputField label={t("modal.city")} value={city} onChange={setCity} />
