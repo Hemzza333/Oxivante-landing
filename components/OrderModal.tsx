@@ -25,6 +25,24 @@ function trackFacebookLead(params: { value: number; currency: string; orderId?: 
   }
 }
 
+function trackFacebookPurchase(params: { value: number; currency: string; orderId?: string }) {
+  if (typeof window === "undefined") return;
+  const w = window as any;
+  if (typeof w.fbq === "function") {
+    w.fbq("track", "Purchase", {
+      value: params.value,
+      currency: params.currency,
+      order_id: params.orderId,
+
+      // Optional helpers for better reporting
+      content_name: "PACK FEMME PREMIUM",
+      content_type: "product",
+      contents: [{ id: "pack-femme-premium", quantity: 1 }],
+      num_items: 1,
+    });
+  }
+}
+
 function trackGA4Lead(params: { value: number; currency: string; orderId?: string }) {
   if (typeof window === "undefined") return;
   const w = window as any;
@@ -156,8 +174,9 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
 
   const scrollYRef = useRef(0);
 
-  // مهم: باش Lead مايتعاودش
+  // مهم: باش Lead و Purchase مايتعاودوش
   const leadFiredRef = useRef(false);
+  const purchaseFiredRef = useRef(false);
 
   /* ───────── Scroll Lock ───────── */
   useEffect(() => {
@@ -186,8 +205,9 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
     setOrderId("");
     setSubmitting(false);
 
-    // رجّعها false باش إلا تسدّ/تحلّ المودال فمرة أخرى يتسجل lead جديد
+    // رجّعها false باش إلا تسدّ/تحلّ المودال فمرة أخرى يتسجل lead/purchase جديد
     leadFiredRef.current = false;
+    purchaseFiredRef.current = false;
   }, []);
 
   const handleClose = useCallback(() => {
@@ -195,16 +215,23 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
     onClose();
   }, [onClose, resetForm]);
 
-  /* ───────── Fire Lead when SUCCESS shows ───────── */
+  /* ───────── Fire Lead + Purchase when SUCCESS shows ───────── */
   useEffect(() => {
-    if (success && !leadFiredRef.current) {
+    if (!success) return;
+
+    // Meta + GA4 Lead (مرة وحدة)
+    if (!leadFiredRef.current) {
       leadFiredRef.current = true;
 
-      // Meta Lead
       trackFacebookLead({ value: PRICE, currency: CURRENCY, orderId });
-
-      // GA4 Lead
       trackGA4Lead({ value: PRICE, currency: CURRENCY, orderId });
+    }
+
+    // Meta Purchase (مرة وحدة)
+    if (!purchaseFiredRef.current) {
+      purchaseFiredRef.current = true;
+
+      trackFacebookPurchase({ value: PRICE, currency: CURRENCY, orderId });
     }
   }, [success, orderId]);
 
