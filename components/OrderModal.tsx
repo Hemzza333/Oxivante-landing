@@ -11,11 +11,18 @@ interface OrderModalProps {
 
 const PRICE = 349;
 const CURRENCY = "MAD";
+const PRODUCT_NAME = "PACK FEMME PREMIUM";
+const PRODUCT_ID = "pack-femme-premium";
 
 /* ───────── Tracking Helpers ───────── */
-function trackFacebookLead(params: { value: number; currency: string; orderId?: string }) {
+function trackFacebookLead(params: {
+  value: number;
+  currency: string;
+  orderId?: string;
+}) {
   if (typeof window === "undefined") return;
   const w = window as any;
+
   if (typeof w.fbq === "function") {
     w.fbq("track", "Lead", {
       value: params.value,
@@ -25,32 +32,77 @@ function trackFacebookLead(params: { value: number; currency: string; orderId?: 
   }
 }
 
-function trackFacebookPurchase(params: { value: number; currency: string; orderId?: string }) {
+function trackFacebookPurchase(params: {
+  value: number;
+  currency: string;
+  orderId?: string;
+}) {
   if (typeof window === "undefined") return;
   const w = window as any;
+
   if (typeof w.fbq === "function") {
     w.fbq("track", "Purchase", {
       value: params.value,
       currency: params.currency,
       order_id: params.orderId,
-
-      // Optional helpers for better reporting
-      content_name: "PACK FEMME PREMIUM",
+      content_name: PRODUCT_NAME,
       content_type: "product",
-      contents: [{ id: "pack-femme-premium", quantity: 1 }],
+      contents: [{ id: PRODUCT_ID, quantity: 1 }],
       num_items: 1,
     });
   }
 }
 
-function trackGA4Lead(params: { value: number; currency: string; orderId?: string }) {
+function trackGA4Lead(params: {
+  value: number;
+  currency: string;
+  orderId?: string;
+}) {
   if (typeof window === "undefined") return;
   const w = window as any;
+
   if (typeof w.gtag === "function") {
     w.gtag("event", "generate_lead", {
       value: params.value,
       currency: params.currency,
       order_id: params.orderId,
+    });
+  }
+}
+
+function trackTikTokInitiateCheckout() {
+  if (typeof window === "undefined") return;
+  const w = window as any;
+
+  if (typeof w.ttq === "function") {
+    w.ttq.track("InitiateCheckout", {
+      content_name: PRODUCT_NAME,
+      content_type: "product",
+      content_id: PRODUCT_ID,
+      quantity: 1,
+      value: PRICE,
+      currency: CURRENCY,
+    });
+  }
+}
+
+function trackTikTokPurchase(params: {
+  value: number;
+  currency: string;
+  orderId?: string;
+}) {
+  if (typeof window === "undefined") return;
+  const w = window as any;
+
+  if (typeof w.ttq === "function") {
+    w.ttq.track("Purchase", {
+      value: params.value,
+      currency: params.currency,
+      order_id: params.orderId,
+      content_name: PRODUCT_NAME,
+      content_type: "product",
+      content_id: PRODUCT_ID,
+      quantity: 1,
     });
   }
 }
@@ -70,6 +122,7 @@ async function submitToSheet(payload: any) {
 
   const text = await res.text();
   let json: any = {};
+
   try {
     json = JSON.parse(text);
   } catch {}
@@ -174,7 +227,8 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
 
   const scrollYRef = useRef(0);
 
-  // مهم: باش Lead و Purchase مايتعاودوش
+  // باش events مايتعاودوش
+  const checkoutFiredRef = useRef(false);
   const leadFiredRef = useRef(false);
   const purchaseFiredRef = useRef(false);
 
@@ -195,6 +249,14 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
     }
   }, [open]);
 
+  /* ───────── TikTok InitiateCheckout when modal opens ───────── */
+  useEffect(() => {
+    if (open && !checkoutFiredRef.current) {
+      checkoutFiredRef.current = true;
+      trackTikTokInitiateCheckout();
+    }
+  }, [open]);
+
   const resetForm = useCallback(() => {
     setName("");
     setPhone("");
@@ -205,7 +267,7 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
     setOrderId("");
     setSubmitting(false);
 
-    // رجّعها false باش إلا تسدّ/تحلّ المودال فمرة أخرى يتسجل lead/purchase جديد
+    checkoutFiredRef.current = false;
     leadFiredRef.current = false;
     purchaseFiredRef.current = false;
   }, []);
@@ -219,19 +281,36 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
   useEffect(() => {
     if (!success) return;
 
-    // Meta + GA4 Lead (مرة وحدة)
     if (!leadFiredRef.current) {
       leadFiredRef.current = true;
 
-      trackFacebookLead({ value: PRICE, currency: CURRENCY, orderId });
-      trackGA4Lead({ value: PRICE, currency: CURRENCY, orderId });
+      trackFacebookLead({
+        value: PRICE,
+        currency: CURRENCY,
+        orderId,
+      });
+
+      trackGA4Lead({
+        value: PRICE,
+        currency: CURRENCY,
+        orderId,
+      });
     }
 
-    // Meta Purchase (مرة وحدة)
     if (!purchaseFiredRef.current) {
       purchaseFiredRef.current = true;
 
-      trackFacebookPurchase({ value: PRICE, currency: CURRENCY, orderId });
+      trackFacebookPurchase({
+        value: PRICE,
+        currency: CURRENCY,
+        orderId,
+      });
+
+      trackTikTokPurchase({
+        value: PRICE,
+        currency: CURRENCY,
+        orderId,
+      });
     }
   }, [success, orderId]);
 
@@ -242,7 +321,9 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
 
     if (!name.trim()) return setError(t("validation.name"));
     if (!phone.trim()) return setError(t("validation.phone"));
-    if (!/^0[67]\d{8}$/.test(phone)) return setError("Numéro marocain invalide");
+    if (!/^0[67]\d{8}$/.test(phone)) {
+      return setError("Numéro marocain invalide");
+    }
     if (!city.trim()) return setError(t("validation.city"));
 
     setSubmitting(true);
@@ -280,17 +361,16 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" dir={dir}>
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-md" onClick={handleClose} />
+      <div
+        className="absolute inset-0 bg-black/20 backdrop-blur-md"
+        onClick={handleClose}
+      />
 
-      {/* Sheet */}
       <div className="relative w-full max-w-md bg-white rounded-t-[32px] shadow-2xl max-h-[90vh] flex flex-col">
-        {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-[4px] rounded-full bg-gray-300" />
         </div>
 
-        {/* Close */}
         <button
           onClick={handleClose}
           className="absolute top-3 end-4 w-9 h-9 rounded-full bg-white/80 backdrop-blur flex items-center justify-center text-black shadow-sm border border-black/5"
@@ -305,15 +385,25 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
               <h3 className="text-lg font-bold mt-2 mb-5">{t("modal.title")}</h3>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
-                <InputField label={t("modal.name")} value={name} onChange={setName} />
+                <InputField
+                  label={t("modal.name")}
+                  value={name}
+                  onChange={setName}
+                />
 
                 <InputField
                   label={t("modal.phone")}
                   value={phone}
-                  onChange={(val) => setPhone(val.replace(/[^\d]/g, "").slice(0, 10))}
+                  onChange={(val) =>
+                    setPhone(val.replace(/[^\d]/g, "").slice(0, 10))
+                  }
                 />
 
-                <InputField label={t("modal.city")} value={city} onChange={setCity} />
+                <InputField
+                  label={t("modal.city")}
+                  value={city}
+                  onChange={setCity}
+                />
 
                 <InputField
                   label={t("modal.address")}
@@ -338,7 +428,12 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
               </form>
             </>
           ) : (
-            <SuccessView orderId={orderId} name={name} t={t} onClose={handleClose} />
+            <SuccessView
+              orderId={orderId}
+              name={name}
+              t={t}
+              onClose={handleClose}
+            />
           )}
         </div>
       </div>

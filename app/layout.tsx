@@ -16,7 +16,6 @@ export const metadata: Metadata = {
     'Pack bien-être féminin premium : Ashwagandha, Fer + Vit C, Collagène Marin. Fabriqué au Maroc.',
   generator: 'v0.app',
 
-  // ✅ Facebook Domain Verification meta tag (Next.js will render it in <head>)
   verification: {
     other: {
       'facebook-domain-verification': 'ce13q70xn0r3svke0s20glo6e4ohjd',
@@ -77,6 +76,20 @@ export default function RootLayout({
             gtag('config', 'G-FS3RNY58C9');
           `}
         </Script>
+
+        {/* ✅ TikTok Pixel */}
+        <Script id="tiktok-pixel" strategy="afterInteractive">
+          {`
+            !function (w, d, t) {
+              w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(
+              var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script");
+              n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
+
+              ttq.load('D6LCIIRC77U8IPQU663G');
+              ttq.page();
+            }(window, document, 'ttq');
+          `}
+        </Script>
       </head>
 
       <body className={`${inter.variable} font-sans antialiased`}>
@@ -107,7 +120,6 @@ export default function RootLayout({
           `}
         </Script>
 
-        {/* Optional: Pixel noscript (يخدم غير إلا كان JS مطفي) */}
         <noscript>
           <img
             height="1"
