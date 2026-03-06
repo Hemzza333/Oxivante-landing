@@ -20,14 +20,14 @@ function trackTikTokInitiateCheckout() {
   if (typeof window === "undefined") return;
   const w = window as any;
 
-  if (typeof w.ttq === "function") {
+  if (w.ttq && typeof w.ttq.track === "function") {
     w.ttq.track("InitiateCheckout", {
-      value: PRICE,
-      currency: CURRENCY,
       content_id: PRODUCT_ID,
       content_type: "product",
       content_name: PRODUCT_NAME,
       quantity: 1,
+      value: PRICE,
+      currency: CURRENCY,
     });
   }
 }
@@ -38,12 +38,14 @@ function trackTikTokPurchase(params: {
   orderId?: string;
 }) {
   if (typeof window === "undefined") return;
+
   const w = window as any;
 
-  if (typeof w.ttq === "function") {
+  if (w.ttq && typeof w.ttq.track === "function") {
     w.ttq.track("Purchase", {
       value: params.value,
       currency: params.currency,
+
       contents: [
         {
           content_id: PRODUCT_ID,
@@ -52,6 +54,7 @@ function trackTikTokPurchase(params: {
           quantity: 1,
         },
       ],
+
       content_id: PRODUCT_ID,
       content_type: "product",
       content_name: PRODUCT_NAME,
@@ -67,6 +70,7 @@ function trackFacebookLead(params: {
   orderId?: string;
 }) {
   const w = window as any;
+
   if (typeof w.fbq === "function") {
     w.fbq("track", "Lead", {
       value: params.value,
@@ -112,22 +116,6 @@ function trackGA4Lead(params: {
   }
 }
 
-/* ───────── Google Sheet ───────── */
-
-async function submitToSheet(payload: any) {
-  const url = process.env.NEXT_PUBLIC_SHEET_WEBAPP_URL;
-
-  const res = await fetch(url!, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain;charset=utf-8",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  return res.json();
-}
-
 /* ───────── Component ───────── */
 
 export function OrderModal({ open, onClose }: OrderModalProps) {
@@ -138,13 +126,15 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
 
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [orderId, setOrderId] = useState("");
 
   const checkoutFiredRef = useRef(false);
   const purchaseFiredRef = useRef(false);
 
-  /* ───────── Initiate Checkout ───────── */
+  /* ───────── InitiateCheckout ───────── */
 
   useEffect(() => {
     if (open && !checkoutFiredRef.current) {
@@ -153,7 +143,7 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
     }
   }, [open]);
 
-  /* ───────── Purchase Event ───────── */
+  /* ───────── Purchase ───────── */
 
   useEffect(() => {
     if (!success) return;
@@ -187,85 +177,76 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
     }
   }, [success, orderId]);
 
-  /* ───────── Submit Order ───────── */
+  /* ───────── Submit ───────── */
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
 
     const id = "ORD-" + Date.now();
 
-    const payload = {
-      orderId: id,
-      lang,
-      product: PRODUCT_NAME,
-      price: PRICE,
-      fullName: name,
-      phone,
-      city,
-      addressNotes: address,
-      status: "NEW",
-      source: "website",
-    };
+    setSubmitting(true);
 
     try {
-      await submitToSheet(payload);
-
       setOrderId(id);
       setSuccess(true);
     } catch (err) {
-      alert("Erreur lors de la commande");
+      setError("Erreur");
     }
+
+    setSubmitting(false);
   };
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" dir={dir}>
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-md" onClick={onClose} />
 
-      <div className="relative w-full max-w-md bg-white rounded-t-3xl p-6">
+      <div className="relative w-full max-w-md bg-white rounded-t-[32px] shadow-2xl max-h-[90vh] flex flex-col">
 
         {!success ? (
-          <>
-            <h3 className="text-xl font-bold mb-4">{t("modal.title")}</h3>
+          <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-3">
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <input
+              placeholder={t("modal.name")}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="border rounded-xl p-3"
+            />
 
-              <input
-                placeholder={t("modal.name")}
-                className="border rounded-xl p-3"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+            <input
+              placeholder={t("modal.phone")}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="border rounded-xl p-3"
+            />
 
-              <input
-                placeholder={t("modal.phone")}
-                className="border rounded-xl p-3"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
+            <input
+              placeholder={t("modal.city")}
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              className="border rounded-xl p-3"
+            />
 
-              <input
-                placeholder={t("modal.city")}
-                className="border rounded-xl p-3"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-              />
+            <input
+              placeholder={t("modal.address")}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className="border rounded-xl p-3"
+            />
 
-              <input
-                placeholder={t("modal.address")}
-                className="border rounded-xl p-3"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-              />
+            {error && <p className="text-red-500">{error}</p>}
 
-              <button className="bg-purple-600 text-white py-4 rounded-xl font-bold">
-                {t("modal.submit")}
-              </button>
-            </form>
-          </>
+            <button
+              disabled={submitting}
+              className="bg-purple-600 text-white py-4 rounded-xl font-bold"
+            >
+              {submitting ? "..." : t("modal.submit")}
+            </button>
+
+          </form>
         ) : (
-          <div className="text-center">
+          <div className="text-center p-6">
 
             <CheckCircle className="mx-auto text-green-500" size={40} />
 
@@ -273,8 +254,8 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
               Commande confirmée !
             </h3>
 
-            <p className="text-gray-500 mt-2">
-              Merci pour votre confiance.
+            <p className="mt-2 text-gray-500">
+              Merci pour votre confiance
             </p>
 
             <p className="mt-4 font-mono">{orderId}</p>
