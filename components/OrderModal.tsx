@@ -11,6 +11,8 @@ interface OrderModalProps {
 
 const PRICE = 349;
 const CURRENCY = "MAD";
+const PRODUCT_NAME = "PACK FEMME PREMIUM";
+const PRODUCT_ID = "pack-femme-premium";
 
 /* ───────── Tracking Helpers ───────── */
 function trackFacebookLead(params: { value: number; currency: string; orderId?: string }) {
@@ -34,10 +36,9 @@ function trackFacebookPurchase(params: { value: number; currency: string; orderI
       currency: params.currency,
       order_id: params.orderId,
 
-      // Optional helpers for better reporting
-      content_name: "PACK FEMME PREMIUM",
+      content_name: PRODUCT_NAME,
       content_type: "product",
-      contents: [{ id: "pack-femme-premium", quantity: 1 }],
+      contents: [{ id: PRODUCT_ID, quantity: 1 }],
       num_items: 1,
     });
   }
@@ -51,6 +52,47 @@ function trackGA4Lead(params: { value: number; currency: string; orderId?: strin
       value: params.value,
       currency: params.currency,
       order_id: params.orderId,
+    });
+  }
+}
+
+function trackTikTokInitiateCheckout() {
+  if (typeof window === "undefined") return;
+  const w = window as any;
+
+  if (w.ttq && typeof w.ttq.track === "function") {
+    w.ttq.track("InitiateCheckout", {
+      value: PRICE,
+      currency: CURRENCY,
+      content_id: PRODUCT_ID,
+      content_type: "product",
+      content_name: PRODUCT_NAME,
+      quantity: 1,
+    });
+  }
+}
+
+function trackTikTokPurchase(params: { value: number; currency: string; orderId?: string }) {
+  if (typeof window === "undefined") return;
+  const w = window as any;
+
+  if (w.ttq && typeof w.ttq.track === "function") {
+    w.ttq.track("Purchase", {
+      value: params.value,
+      currency: params.currency,
+      order_id: params.orderId,
+      content_id: PRODUCT_ID,
+      content_type: "product",
+      content_name: PRODUCT_NAME,
+      quantity: 1,
+      contents: [
+        {
+          content_id: PRODUCT_ID,
+          content_type: "product",
+          content_name: PRODUCT_NAME,
+          quantity: 1,
+        },
+      ],
     });
   }
 }
@@ -175,6 +217,7 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
   const scrollYRef = useRef(0);
 
   // مهم: باش Lead و Purchase مايتعاودوش
+  const checkoutFiredRef = useRef(false);
   const leadFiredRef = useRef(false);
   const purchaseFiredRef = useRef(false);
 
@@ -195,6 +238,14 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
     }
   }, [open]);
 
+  /* ───────── TikTok InitiateCheckout when modal opens ───────── */
+  useEffect(() => {
+    if (open && !checkoutFiredRef.current) {
+      checkoutFiredRef.current = true;
+      trackTikTokInitiateCheckout();
+    }
+  }, [open]);
+
   const resetForm = useCallback(() => {
     setName("");
     setPhone("");
@@ -206,6 +257,7 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
     setSubmitting(false);
 
     // رجّعها false باش إلا تسدّ/تحلّ المودال فمرة أخرى يتسجل lead/purchase جديد
+    checkoutFiredRef.current = false;
     leadFiredRef.current = false;
     purchaseFiredRef.current = false;
   }, []);
@@ -227,11 +279,12 @@ export function OrderModal({ open, onClose }: OrderModalProps) {
       trackGA4Lead({ value: PRICE, currency: CURRENCY, orderId });
     }
 
-    // Meta Purchase (مرة وحدة)
+    // Meta + TikTok Purchase (مرة وحدة)
     if (!purchaseFiredRef.current) {
       purchaseFiredRef.current = true;
 
       trackFacebookPurchase({ value: PRICE, currency: CURRENCY, orderId });
+      trackTikTokPurchase({ value: PRICE, currency: CURRENCY, orderId });
     }
   }, [success, orderId]);
 
